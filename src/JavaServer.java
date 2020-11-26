@@ -39,17 +39,19 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.FileNotFoundException;
+
 public class JavaServer {
 
 	public static KeyValueHandler handler;
 
-	public static ReplicatedKeyValueStore.Processor<ReplicatedKeyValueStore.Iface> processor ;
+	public static ReplicatedKeyValueStore.Processor<ReplicatedKeyValueStore.Iface> processor;
 
 	public static int port;
 
 	public static void main(String[] args) {
 		try {
-			handler = new KeyValueHandler(InetAddress.getLocalHost().getHostAddress() + ":" + args[0], getReplicasFromSystem("abc"));
+			handler = new KeyValueHandler(InetAddress.getLocalHost().getHostAddress() + ":" + args[0],
+					getReplicasFromSystem("replicaNodes.txt"));
 			processor = new ReplicatedKeyValueStore.Processor(handler);
 			port = Integer.valueOf(args[0]);
 			Runnable simple = new Runnable() {
@@ -120,28 +122,28 @@ public class JavaServer {
 	}
 
 	public static List<ReplicaID> getReplicasFromSystem(String fName) {
-	  File file= new File(fName);
-	  BufferedReader fileReader=null;
-	  List<ReplicaID> rep = new ArrayList<ReplicaID>();
-	  try {
-		fileReader= new BufferedReader(new FileReader(file) );
-		String l=null;
-		while( null != (l=fileReader.readLine())) {
-			String[] replica = l.split(" ");
-			rep.add(createReplica(replica[0],replica[1], replica[2]));
+		File file = new File(fName);
+		BufferedReader fileReader = null;
+		List<ReplicaID> rep = new ArrayList<ReplicaID>();
+		try {
+			fileReader = new BufferedReader(new FileReader(file));
+			String l = null;
+			while (null != (l = fileReader.readLine())) {
+				String[] replica = l.split(" ");
+				rep.add(createReplica(replica[0], replica[1], replica[2]));
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			// fileReader.close();
 		}
-	} catch (FileNotFoundException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	} finally{ 
-		  //fileReader.close();
-    }
-	  return rep;
-	  
-  }
+		return rep;
+
+	}
 
 	public static ReplicaID createReplica(String id, String ip, String port) {
 		ReplicaID replicaID = new ReplicaID();
