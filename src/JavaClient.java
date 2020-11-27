@@ -88,7 +88,7 @@ public class JavaClient {
 						System.out.println("The value returned for key " + reqKey + " is " + value1[1]);
 					}
 				} else {
-					if (!client.put(request, reqKey, reqVal, null)) {
+					if (!client.put(request, reqKey, reqVal, null,false)) {
 						System.out.println("Write operation was not successful. Server might be down.");
 					}
 				}

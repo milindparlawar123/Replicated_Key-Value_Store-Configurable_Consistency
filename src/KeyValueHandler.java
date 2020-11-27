@@ -36,6 +36,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 
 	public KeyValueHandler(String ipPort, List<ReplicaID> repLst) throws NumberFormatException, IOException {
 		System.out.println("......................................................................");
+		System.out.println(hints);
 		hints = new ConcurrentHashMap<String, List<Hint>>();
 		replList = repLst;
 		id = ipPort;
@@ -68,12 +69,39 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 	@Override
 	public String get(ReadOrWriteRequest request, int key, ReplicaID replicaID) throws SystemException, TException {
 		String returnValue = "";
-		if (false) {// isHintedHandoff
-			if (hints.containsKey(replicaID.getId())) {
-				performHintedHandoff(replicaID);
+		if (true) {// isHintedHandoff
+			/*
+			 * if (hints.containsKey(replicaID.getId())) { performHintedHandoff(replicaID);
+			 * }
+			 */
+			//milind
+			for (ReplicaID replID : replList) {
+
+				String temp = replID.getIp() + ":" + replID.getPort();
+				if (temp.equals(id)) {
+					
+					continue;
+				}
+
+				try {
+					TTransport tTransport = new TSocket(replID.getIp(), replID.getPort());
+					tTransport.open();
+					TProtocol tProtocol = new TBinaryProtocol(tTransport);
+					ReplicatedKeyValueStore.Client client = new ReplicatedKeyValueStore.Client(tProtocol);
+					client.put(request, key, "", new ReplicaID().setIp(ip).setPort(port).setId(id),true);
+					tTransport.close();
+				} catch (TTransportException e) {
+					System.out.println("Could not connect to server " + replID.getPort());
+					//storeHintsLocally(replID, key, value, request);
+				} catch (SystemException e) {
+					System.out.println("SystemException: " + e.getMessage());
+				} catch (TException e) {
+					System.out.println("TException: " + e.getMessage());
+				}
 			}
+			//milind
 			if (store.get(key) != null) {
-				returnValue = store.get(key).timestamp + "," + store.get(key);
+				returnValue = store.get(key).timestamp + "," + store.get(key).value;
 			}
 		} else {
 			if (request.isIsCoordinator()) {
@@ -89,8 +117,13 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 	}
 
 	@Override
-	public boolean put(ReadOrWriteRequest request, int key, String value, ReplicaID replicaID)
+	public boolean put(ReadOrWriteRequest request, int key, String value, ReplicaID replicaID, boolean flag)
 			throws SystemException, TException {
+		if(flag) {
+			 if (hints.containsKey(replicaID.getId())) { performHintedHandoff(replicaID);
+			  }
+			 return true;
+		}
 		Timestamp timestamp;
 		ValueWithTimestamp oldValue = store.get(key);
 		try {
@@ -101,6 +134,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 			}
 			int count = 0;
 			writeToLog(key, new ValueWithTimestamp(value, timestamp));
+			store.put(key, new ValueWithTimestamp(value, timestamp));
 			if (request.isIsCoordinator()) {
 				boolean isSuccessfull = sendRequestToAllReplicas(count, key, value,
 						request.setIsCoordinator(false).setTimestamp(timestamp.toString()));
@@ -109,13 +143,24 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 					store.put(key, oldValue);
 				}
 				return isSuccessfull;
-			}
+			} else {
+				/*
+				 * ReplicaID reId=null; for (ReplicaID replID : replList) {
+				 * 
+				 * String temp = replID.getIp() + ":" + replID.getPort(); if (temp.equals(id)) {
+				 * reId=replID; break; } }
+				 * 
+				 * performHintedHandoff(reId);
+				 */}
 		} catch (IOException e) {
 			throw new SystemException();
 		}
-		if (hints.containsKey(replicaID.getId())) {
-			performHintedHandoff(replicaID);
-		}
+		//milind
+		/*
+		 * if (hints.containsKey(replicaID.getId())) { performHintedHandoff(replicaID);
+		 * }
+		 */
+		//milind
 
 		if (oldValue == null || oldValue.timestamp.before(timestamp)) {
 			ValueWithTimestamp valueWithTimestamp = new ValueWithTimestamp(value, timestamp);
@@ -132,7 +177,8 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 				tTransport.open();
 				TProtocol tProtocol = new TBinaryProtocol(tTransport);
 				ReplicatedKeyValueStore.Client client = new ReplicatedKeyValueStore.Client(tProtocol);
-				client.put(hint.request, hint.key, hint.value, new ReplicaID().setIp(ip).setPort(port).setId(id));
+				hint.request.setIsCoordinator(false);
+				client.put(hint.request, hint.key, hint.value, new ReplicaID().setIp(ip).setPort(port).setId(id), false);
 				tTransport.close();
 			} catch (SystemException e) {
 				e.printStackTrace();
@@ -165,7 +211,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 				tTransport.open();
 				TProtocol tProtocol = new TBinaryProtocol(tTransport);
 				ReplicatedKeyValueStore.Client client = new ReplicatedKeyValueStore.Client(tProtocol);
-				if (client.put(request, key, value, new ReplicaID().setIp(ip).setPort(port).setId(id))) {
+				if (client.put(request, key, value, new ReplicaID().setIp(ip).setPort(port).setId(id), false)) {
 					count += 1;
 				}
 				if (count >= consistencyLevel) {
@@ -208,24 +254,27 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 	 * Read data from all Replicas.And if configured start the read repair
 	 */
 	private String readFromAllReplicas(int key, ReadOrWriteRequest request) {
-		int consistencyLevel = 0;
+		System.out.println("inside");
 		List<ValueWithTimestamp> valueList = new ArrayList<ValueWithTimestamp>();
 		Map<ReplicaID, ValueWithTimestamp> readRepairList = new HashMap<ReplicaID, ValueWithTimestamp>();
 
 		String result = null;
-
-		if (request.getConsistencyLevel() == ConsistencyLevel.ONE) {
-			consistencyLevel = 1;
-		} else {
+		int consistencyLevel = 0;
+		if (request.getConsistencyLevel() == ConsistencyLevel.QUORUM) {
 			consistencyLevel = 2;
+		} else {
+			consistencyLevel = 1;
 		}
 		if (store.get(key) != null) {
 			valueList.add(store.get(key));
+			result= store.get(key).timestamp + "," + store.get(key).value;
 		}
 		System.out.println("valueList soze " + valueList.size());
 		for (ReplicaID replicaID : replList) {
 			try {
-				if (valueList.size() >= consistencyLevel) {
+				System.out.println("RESUL "+result);
+				if (valueList.size() < consistencyLevel) {
+					System.out.println("count  "+consistencyLevel +" v  "+valueList.size());
 					result = getUpdatedValue(valueList);
 				}
 				String temp = replicaID.getIp() + ":" + replicaID.getPort();
@@ -253,6 +302,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 			}
 
 		}
+		System.out.println("bddd "+result);
 		// Start this method in background.
 		Runnable runnable = new Runnable() {
 			@Override
@@ -265,6 +315,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 			}
 		};
 		(new Thread(runnable)).start();
+		System.out.println(" adfg "+result);
 		return result;
 	}
 
@@ -293,7 +344,7 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 				tTransport.open();
 				TProtocol tProtocol = new TBinaryProtocol(tTransport);
 				ReplicatedKeyValueStore.Client client = new ReplicatedKeyValueStore.Client(tProtocol);
-				client.put(request, key, newestValue.value, new ReplicaID().setIp(ip).setPort(port).setId(id));
+				client.put(request, key, newestValue.value, new ReplicaID().setIp(ip).setPort(port).setId(id),false);
 				tTransport.close();
 			}
 		}
