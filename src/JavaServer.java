@@ -50,7 +50,12 @@ public class JavaServer {
 
 	public static void main(String[] args) {
 		try {
-			handler = new KeyValueHandler(InetAddress.getLocalHost().getHostAddress() + ":" + args[0],
+			//System.out.println(" args "+args.length + " "+ args[1]);
+			boolean hinted=false;
+			if(args[2].equalsIgnoreCase("true")) {
+				hinted=true;
+			}
+			handler = new KeyValueHandler(hinted,args[1],InetAddress.getLocalHost().getHostAddress() + ":" + args[0],
 					getReplicasFromSystem("replicaNodes.txt"));
 			processor = new ReplicatedKeyValueStore.Processor(handler);
 			port = Integer.valueOf(args[0]);

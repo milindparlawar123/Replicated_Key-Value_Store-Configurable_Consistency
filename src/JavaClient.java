@@ -62,18 +62,18 @@ public class JavaClient {
 				TProtocol protocol = new TBinaryProtocol(transport);
 				ReplicatedKeyValueStore.Client client = new ReplicatedKeyValueStore.Client(protocol);
 
-				System.out.println("Enter request type : get or put");
+				System.out.println("Enter request type : get or put :");
 				String reqType = br.readLine();
-				System.out.println("Enter key");
+				System.out.println("Enter key :");
 				int reqKey = Integer.parseInt(br.readLine());
 				String reqVal = "";
 				if ("get".equalsIgnoreCase(reqType)) {
 
 				} else {
-					System.out.println("Enter value");
+					System.out.println("Enter value :");
 					reqVal = br.readLine();
 				}
-				System.out.println("Enter Consistency Level : ONE or QUORUM");
+				System.out.println("Enter Consistency Level : ONE or QUORUM : ");
 				String reqCL = br.readLine();
 
 				ReadOrWriteRequest request = new ReadOrWriteRequest();
@@ -85,10 +85,15 @@ public class JavaClient {
 						System.out.println("The key either does not exist or has null value");
 					} else {
 						String[] value1 = returnedValue.split(",", 2);
+					if(returnedValue.contains(",")) {
 						System.out.println("The value returned for key " + reqKey + " is " + value1[1]);
 					}
+					else {
+						System.out.println("The value returned for key " + returnedValue);
+					}
+					}
 				} else {
-					if (!client.put(request, reqKey, reqVal, null,false)) {
+					if (!client.put(request, reqKey, reqVal, null,false,false)) {
 						System.out.println("Write operation was not successful. Server might be down.");
 					}
 				}
@@ -114,7 +119,10 @@ public class JavaClient {
 			String l = null;
 			while (null != (l = fileReader.readLine())) {
 				String[] replica = l.split(" ");
-				rep.add(createReplica(replica[0], replica[1], replica[2]));
+				String s0=replica[0];
+				String s1=replica[1];
+				String s2=replica[2];
+				rep.add(createReplica(s0, s1, s2));
 			}
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
