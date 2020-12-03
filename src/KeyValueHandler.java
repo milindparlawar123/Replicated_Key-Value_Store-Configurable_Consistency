@@ -80,10 +80,6 @@ public class KeyValueHandler implements ReplicatedKeyValueStore.Iface {
 	public String get(ReadOrWriteRequest request, int key, ReplicaID replicaID) throws SystemException, TException {
 		String returnValue = "";
 		if (isHintedHandOff) {// isHintedHandoff
-			/*
-			 * if (hints.containsKey(replicaID.getId())) { performHintedHandoff(replicaID);
-			 * }
-			 */
 			// milind
 			int count = 0;
 			for (ReplicaID replID : replList) {
